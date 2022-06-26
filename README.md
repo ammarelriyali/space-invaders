@@ -1,12 +1,12 @@
 # space-invaders
-### final project of HTC (simple data)
+### final project of course HTC (simple data)
 
 
 ## Features
 
-- hit by rocket the invaders to distory them
-- tank can move right and lift 
-- game end if the invader reach the bottom layer
+- hit by a rocket the invaders to destroy them
+- the tank can move right and lift 
+- game end if the invader reaches the bottom layer
 
 
 
