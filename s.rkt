@@ -1,8 +1,9 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-advanced-reader.ss" "lang")((modname space-invaders-starter) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
+#reader(lib "htdp-advanced-reader.ss" "lang")((modname s) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 (require 2htdp/universe)
 (require 2htdp/image)
+
 ;; Space Invaders
 
 
@@ -11,25 +12,14 @@
 (define WIDTH  300)
 (define HEIGHT 500)
 
-(define SCORE-WIN 400)
-
-(define TEXT-SIZE-SCORE 16)
-(define TEXT-SCORE-X 16)
-(define TEXT-SCORE-Y 16)
-
-(define TEXT-SIZE-WIN 36)
-(define TEXT-WIN-X 150)
-(define TEXT-WIN-Y 250)
-
-
-(define INVADER-X-SPEED 1.5)  ;speeds (not velocities) in pixels per tick (attacker)
+(define INVADER-X-SPEED 1.5)  ;speeds (not velocities) in pixels per tick
 (define INVADER-Y-SPEED 1.5)
-(define TANK-SPEED 2)         ; my space
-(define MISSILE-SPEED 10)     ; speed racket of my space
+(define TANK-SPEED 2)
+(define MISSILE-SPEED 10)
 
-(define HIT-RANGE 10)         ; range of attacker to kill by racket
+(define HIT-RANGE 20)
 
-(define INVADE-RATE 100)      ; count of attacker 10 is so mach 300 is few
+(define INVADE-RATE 100)
 
 (define BACKGROUND (empty-scene WIDTH HEIGHT))
 
@@ -45,29 +35,26 @@
               (above (rectangle 5 10 "solid" "black")       ;gun
                      (rectangle 20 10 "solid" "black"))))   ;main body
 
-(define TANK-HEIGHT/2 (/ (image-height TANK) 2))            ; point of start of racket
+(define TANK-HEIGHT/2 (/ (image-height TANK) 2))
 
-(define MISSILE (ellipse 5 15 "solid" "red"))               ;racket
+(define MISSILE (ellipse 5 15 "solid" "red"))
 
 
 
 ;; Data Definitions:
 
-(define-struct game (invaders missiles tank score win))
-;; Game is (make-game  (listof Invader) (listof Missile) Tank Number Number)
+(define-struct game (invaders missiles tank))
+;; GameState is (make-game  (listof Invader) (listof Missile) Tank)
 ;; interp. the current state of a space invaders game
 ;;         with the current invaders, missiles and tank position
-;;         and score and win is :
-;;                           0 -> game still running
-;;                           1 -> game over
 
-;; Game constants defined below Missile data definition
+;; GameState constants defined below Missile data definition
 
 #;
-(define (fn-for-game s)
-  (... (fn-for-loinvader (game-invaders s))
-       (fn-for-lom (game-missiles s))
-       (fn-for-tank (game-tank s))))
+(define (fn-for-game gs)
+  (... (fn-for-loinvader (game-invaders gs))
+       (fn-for-lom (game-missiles gs))
+       (fn-for-tank (game-tank gs))))
 
 
 
@@ -91,9 +78,9 @@
 ;; interp. the invader is at (x, y) in screen coordinates
 ;;         the invader along x by dx pixels per clock tick
 
-(define I1 (make-invader 150 100 12))           ;not landed, moving right
-(define I2 (make-invader 150 HEIGHT -10))       ;exactly landed, moving left
-(define I3 (make-invader 150 (+ HEIGHT 10) 10)) ;> landed, moving right
+(define I1 (make-invader 150 100 1))           ;not landed, moving right
+(define I2 (make-invader 150 HEIGHT -1))       ;exactly landed, moving left
+(define I3 (make-invader 150 (+ HEIGHT 10) 1)) ;> landed, moving right
 
 
 #;
@@ -105,38 +92,40 @@
 ;; Missile is (make-missile Number Number)
 ;; interp. the missile's location is x y in screen coordinates
 
-(define M1 (make-missile 150 300))                       ;not hit U1
-(define M2 (make-missile (invader-x I1) (+ (invader-y I1) 10)))  ;exactly hit U1
-(define M3 (make-missile (invader-x I1) (+ (invader-y I1)  5)))  ;> hit U1
+(define M1 (make-missile 150 300))                       ;not hit I1
+(define M2 (make-missile (invader-x I1) (+ (invader-y I1) 10)))  ;exactly hit I1
+(define M3 (make-missile (invader-x I1) (+ (invader-y I1)  5)))  ;> hit I1
 
 #;
 (define (fn-for-missile m)
   (... (missile-x m) (missile-y m)))
 
 
-
-
-
 ;; GameState constants
-(define GS0 (make-game empty empty T0 0 0))
-(define GS1 (make-game empty empty T1 0 0))
-(define GS2 (make-game (list I1) (list M1) T1 0 0))
-(define GS3 (make-game (list I1 I2) (list M1 M2) T1 0 0))
-(define GS4 (make-game (list I1 I2) (list M1 M2) T1 200000 0))
+(define GS0 (make-game empty empty T0))
+(define GS1 (make-game empty empty T1))
+(define GS2 (make-game (list I1) (list M1) T1))
+(define GS3 (make-game (list I1 I2) (list M1 M2) T1))
+
+
 
 
 ;; =================
 ;; Functions:
 
-;; game -> game
+;; MAIN
+;; GameState -> GameState
+;; runs the Space Invaders game
 ;; start the world with (main GS0)
-;; 
-(define (main g)
-  (big-bang g                   ; game
-            (on-tick   next-state)     ; game -> game
-            (to-draw   render-state)   ; game -> Image
-            (stop-when game-over?)      ; game -> Boolean
-            (on-key    handle-key)))    ; game KeyEvent -> game
+;; <no tests for main functions>
+(define (main gs)
+  (big-bang gs                  ; GameState
+    (on-tick   next-state)      ; GameState -> GameState
+    (to-draw   render-state)    ; GameState -> Image
+    (on-key    handle-key)      ; GameState KeyEvent -> GameState
+    (stop-when game-over?)))    ; GameState -> Boolean
+
+
 
 
 ;; NEXT-STATE
@@ -151,15 +140,12 @@
           (append (list (make-invader (random WIDTH) 0 INVADER-X-SPEED))
                   (next-invaders (game-invaders gs) (game-missiles gs)))
           (next-missiles (game-invaders gs) (game-missiles gs))
-          (next-tank (game-tank gs))
-          (update-score (game-score gs) (game-invaders gs) (game-missiles gs) )
-          (update-win gs))]
+          (next-tank (game-tank gs)))]
         [else
          (make-game (next-invaders (game-invaders gs) (game-missiles gs))
                     (next-missiles (game-invaders gs) (game-missiles gs))
-                    (next-tank (game-tank gs))
-                    (update-score (game-score gs)(game-invaders gs) (game-missiles gs))
-                    (update-win gs))]))
+                    (next-tank (game-tank gs)))]))
+
 
 
 
@@ -225,7 +211,7 @@
 ;; NEXT-INVADER
 ;; Invader -> Invader
 ;; produces updated invader
-
+(check-expect (next-invader I1) (make-invader 151 101 1))
 (check-expect (next-invader (make-invader 1 100 -2)) (make-invader 0 100 2))
 (check-expect (next-invader (make-invader (- WIDTH 1) 100 2))
               (make-invader WIDTH 100 -2))
@@ -326,90 +312,34 @@
         [(<= WIDTH (+ (* TANK-SPEED (tank-dir t)) (tank-x t)))
          (make-tank WIDTH (tank-dir t))]))
 
-;; number (listof Invader) (listof Missile) ->number
-;; produes score
-(check-expect (update-score 8 (list I1) (list M1 M2)) 9)
-(check-expect (update-score 8 (list I1) (list M1 )) 8)
-
-(define (update-score n loi lom)
-  (+ n (number-0f-hit-invader loi lom 0)))
-
-;; (listof Invader) (listof Missile) number ->number
-;; produes number of hitted invader
 
 
-(define (number-0f-hit-invader loi lom s)
-  (if (empty? loi)
-      s
-      (if(collision-invader? (first loi) lom)
-         (number-0f-hit-invader (rest loi) lom (+ 1 s))
-         (number-0f-hit-invader (rest loi) lom s))))
-
-;; Game -> number
-;; produse 0 if game still running    1 if game over      2 if  win 
-
-(check-expect (update-win GS3)
-              (cond[(empty? (game-invaders GS3)) 0]
-                   [(= (game-score GS3) SCORE-WIN) 2]
-                   [else
-                    (cond [(<= HEIGHT (invader-y (first (game-invaders GS3)))) 1]
-                          [else (update-win (make-game
-                                             (rest (game-invaders GS3))
-                                             (game-missiles GS3)
-                                             (game-tank GS3)
-                                             (game-score GS3)
-                                             (game-win GS3)))])]))
-(define (update-win gs)
-(cond[(empty? (game-invaders gs)) 0]
-     [(= (game-score gs) SCORE-WIN) 2]
-       [else
-        (cond [(<= (-  HEIGHT 4) (invader-y (first (game-invaders gs)))) 1]
-              [else (update-win (make-game
-                                 (rest (game-invaders gs))
-                                 (game-missiles gs)
-                                 (game-tank gs)
-                                 (game-score GS0)
-                                 (game-win GS0)))])]))
 
 ;; RENDER-STATE
 ;; GameState -> Image
 ;; produces image, rendering given game state
 (check-expect (render-state GS0)
-                (render-win (game-win GS0)
-                            (render-invaders (game-invaders GS0)
+              (render-invaders (game-invaders GS0)
                                (render-missiles (game-missiles GS0)
-                                                (render-tank (game-tank GS0)
-                                                             (render-score (game-score GS0)
-                                                             BACKGROUND))))))
-
+                                                (render-tank (game-tank GS0) BACKGROUND))))
 (check-expect (render-state GS1)
-              (render-win (game-win GS1)
-                          (render-invaders (game-invaders GS1)
+              (render-invaders (game-invaders GS1)
                                (render-missiles (game-missiles GS1)
-                                                (render-tank (game-tank GS1)
-                                                             (render-score (game-score GS1)
-                                                                BACKGROUND))))))
+                                                (render-tank (game-tank GS1) BACKGROUND))))
 (check-expect (render-state GS2)
-              (render-win (game-win GS2)
-                          (render-invaders (game-invaders GS2)
+              (render-invaders (game-invaders GS2)
                                (render-missiles (game-missiles GS2)
-                                                (render-tank (game-tank GS2)
-                                                             (render-score (game-score GS2)
-                                                                BACKGROUND))))))
+                                                (render-tank (game-tank GS2) BACKGROUND))))
 (check-expect (render-state GS3)
-              (render-win (game-win GS3)(render-invaders (game-invaders GS3)
+              (render-invaders (game-invaders GS3)
                                (render-missiles (game-missiles GS3)
-                                                (render-tank (game-tank GS3)
-                                                             (render-score (game-score GS3)
-                                                                BACKGROUND))))))
+                                                (render-tank (game-tank GS3) BACKGROUND))))
 ;(define (render-state gs) gs) ;stub
 ;<template from GameState>
 (define (render-state gs)
-   (render-win (game-win gs)
-               (render-invaders (game-invaders gs)
+  (render-invaders (game-invaders gs)
                    (render-missiles (game-missiles gs)
-                                    (render-tank (game-tank gs)
-                                                 (render-score (game-score gs) BACKGROUND))))))
+                                    (render-tank (game-tank gs) BACKGROUND))))
 
 
 
@@ -503,38 +433,6 @@
                img))
 
 
-(check-expect (render-score 16 BACKGROUND)
-              (place-image (text (number->string 16 )TEXT-SIZE-SCORE "indigo")
-                           TEXT-SCORE-X TEXT-SCORE-Y
-                           BACKGROUND))
-
-; number img ->img
-; produse score let top of screen
-(define (render-score s img)
-  (place-image (text (number->string s ) TEXT-SIZE-SCORE "indigo")
-                           TEXT-SCORE-X TEXT-SCORE-Y
-                           img))
-
-; number img -> img
-; produse img of game state
-(check-expect (render-win 1 BACKGROUND)
-              (place-image (text "GAME OVER" TEXT-SIZE-WIN "indigo")
-                           TEXT-WIN-X TEXT-WIN-Y
-                          BACKGROUND ))
-(check-expect (render-win 2 BACKGROUND)
-              (place-image (text "WIN" TEXT-SIZE-WIN "indigo")
-                           TEXT-WIN-X TEXT-WIN-Y
-                          BACKGROUND ))
-(check-expect (render-win 0 BACKGROUND)BACKGROUND)
-(define (render-win w img)
-  (cond[(= 0 w) img]
-       [(= 1 w)(place-image (text "GAME OVER" TEXT-SIZE-WIN "indigo")
-                           TEXT-WIN-X TEXT-WIN-Y
-                          img )]
-       [else (place-image (text "WIN" TEXT-SIZE-WIN "indigo")
-                           TEXT-WIN-X TEXT-WIN-Y
-                           BACKGROUND)]))
-
 
 
 ;; HANDLE-KEY
@@ -565,36 +463,28 @@
                                  (list (make-missile
                                         (tank-x (game-tank GS0))
                                         (- HEIGHT TANK-HEIGHT/2))))
-                         (game-tank GS0)
-                         (game-score GS0)
-                                             (game-win GS0)))
+                         (game-tank GS0)))
 (check-expect (handle-key-missile GS1)
               (make-game (game-invaders GS1)
                          (append (game-missiles GS1)
                                  (list (make-missile
                                         (tank-x (game-tank GS1))
                                         (- HEIGHT TANK-HEIGHT/2))))
-                         (game-tank GS1)
-                         (game-score GS1)
-                                             (game-win GS1)))
+                         (game-tank GS1)))
 (check-expect (handle-key-missile GS2)
               (make-game (game-invaders GS2)
                          (append (game-missiles GS2)
                                  (list (make-missile
                                         (tank-x (game-tank GS2))
                                         (- HEIGHT TANK-HEIGHT/2))))
-                         (game-tank GS2)
-                         (game-score GS2)
-                                             (game-win GS2)))
+                         (game-tank GS2)))
 (check-expect (handle-key-missile GS3)
               (make-game (game-invaders GS3)
                          (append (game-missiles GS3)
                                  (list (make-missile
                                         (tank-x (game-tank GS3))
                                         (- HEIGHT TANK-HEIGHT/2))))
-                         (game-tank GS3)
-                         (game-score GS3)
-                                             (game-win GS3)))
+                         (game-tank GS3)))
 ;(define (handle-key-missile gs) gs) ;stub
 ;<template from GameState>
 (define (handle-key-missile gs)
@@ -603,9 +493,7 @@
                      (list (make-missile
                             (tank-x (game-tank gs))
                             (- HEIGHT TANK-HEIGHT/2))))
-             (game-tank gs)
-             (game-score gs)
-                                             (game-win gs)))
+             (game-tank gs)))
 
 
 
@@ -616,35 +504,25 @@
 (check-expect (handle-key-tank-left GS0)
               (make-game (game-invaders GS0)
                          (game-missiles GS0)
-                         (make-tank (tank-x (game-tank GS0)) -1)
-                         (game-score GS0)
-                                             (game-win GS0)))
+                         (make-tank (tank-x (game-tank GS0)) -1)))
 (check-expect (handle-key-tank-left GS1)
               (make-game (game-invaders GS1)
                          (game-missiles GS1)
-                         (make-tank (tank-x (game-tank GS1)) -1)
-                         (game-score GS1)
-                                             (game-win GS1)))
+                         (make-tank (tank-x (game-tank GS1)) -1)))
 (check-expect (handle-key-tank-left GS2)
               (make-game (game-invaders GS2)
                          (game-missiles GS2)
-                         (make-tank (tank-x (game-tank GS2)) -1)
-                         (game-score GS2)
-                                             (game-win GS2)))
+                         (make-tank (tank-x (game-tank GS2)) -1)))
 (check-expect (handle-key-tank-left GS3)
               (make-game (game-invaders GS3)
                          (game-missiles GS3)
-                         (make-tank (tank-x (game-tank GS3)) -1)
-                         (game-score GS3)
-                                             (game-win GS3)))
+                         (make-tank (tank-x (game-tank GS3)) -1)))
 ;(define (handle-key-tank-left gs) gs) ;stub
 ;<template from GameState>
 (define (handle-key-tank-left gs)
   (make-game (game-invaders gs)
              (game-missiles gs)
-             (make-tank (tank-x (game-tank gs)) -1)
-             (game-score gs)
-             (game-win gs)))
+             (make-tank (tank-x (game-tank gs)) -1)))
 
 
 
@@ -655,36 +533,25 @@
 (check-expect (handle-key-tank-right GS0)
               (make-game (game-invaders GS0)
                          (game-missiles GS0)
-                         (make-tank (tank-x (game-tank GS0)) 1)
-                         (game-score GS0)
-                         (game-win GS0)
-                         ))
+                         (make-tank (tank-x (game-tank GS0)) 1)))
 (check-expect (handle-key-tank-right GS1)
               (make-game (game-invaders GS1)
                          (game-missiles GS1)
-                         (make-tank (tank-x (game-tank GS1)) 1)
-                         (game-score GS1)
-                                             (game-win GS1)))
+                         (make-tank (tank-x (game-tank GS1)) 1)))
 (check-expect (handle-key-tank-right GS2)
               (make-game (game-invaders GS2)
                          (game-missiles GS2)
-                         (make-tank (tank-x (game-tank GS2)) 1)
-                         (game-score GS2)
-                         (game-win GS2)))
+                         (make-tank (tank-x (game-tank GS2)) 1)))
 (check-expect (handle-key-tank-right GS3)
               (make-game (game-invaders GS3)
                          (game-missiles GS3)
-                         (make-tank (tank-x (game-tank GS3)) 1)
-                         (game-score GS3)
-                         (game-win GS3)))
+                         (make-tank (tank-x (game-tank GS3)) 1)))
 ;(define (handle-key-tank-right gs) gs) ;stub
 ;<template from GameState>
 (define (handle-key-tank-right gs)
   (make-game (game-invaders gs)
              (game-missiles gs)
-             (make-tank (tank-x (game-tank gs)) 1)
-             (game-score gs)
-             (game-win gs)))
+             (make-tank (tank-x (game-tank gs)) 1)))
 
 
 
@@ -699,9 +566,7 @@
                           [else (game-over? (make-game
                                              (rest (game-invaders GS0))
                                              (game-missiles GS0)
-                                             (game-tank GS0)
-                                             (game-score GS0)
-                                             (game-win GS0)))])]))
+                                             (game-tank GS0)))])]))
 (check-expect (game-over? GS1)
               (cond[(empty? (game-invaders GS1)) false]
                    [else
@@ -709,9 +574,7 @@
                           [else (game-over? (make-game
                                              (rest (game-invaders GS1))
                                              (game-missiles GS1)
-                                             (game-tank GS1)
-                                             (game-score GS1)
-                                             (game-win GS1)))])]))
+                                             (game-tank GS1)))])]))
 (check-expect (game-over? GS2)
               (cond[(empty? (game-invaders GS2)) false]
                    [else
@@ -719,9 +582,7 @@
                           [else (game-over? (make-game
                                              (rest (game-invaders GS2))
                                              (game-missiles GS2)
-                                             (game-tank GS2)
-                                             (game-score GS2)
-                                             (game-win GS2)))])]))
+                                             (game-tank GS2)))])]))
 (check-expect (game-over? GS3)
               (cond[(empty? (game-invaders GS3)) false]
                    [else
@@ -729,20 +590,14 @@
                           [else (game-over? (make-game
                                              (rest (game-invaders GS3))
                                              (game-missiles GS3)
-                                             (game-tank GS3)
-                                             (game-score GS3)
-                                             (game-win GS3)))])]))
+                                             (game-tank GS3)))])]))
 ;(define (game-over? gs) false) ;stub
 ;<template from GameState>
 (define (game-over? gs)
   (cond[(empty? (game-invaders gs)) false]
-       [(= (game-score gs) (+ 1 SCORE-WIN)) true]
        [else
         (cond [(<= HEIGHT (invader-y (first (game-invaders gs)))) true]
               [else (game-over? (make-game
                                  (rest (game-invaders gs))
                                  (game-missiles gs)
-                                 (game-tank gs)
-                                 (game-score GS0)
-                                 (game-win GS0)))])]))
-
+                                 (game-tank gs)))])]))
